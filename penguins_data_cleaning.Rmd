@@ -1,0 +1,178 @@
+---
+title: 'Data Cleaning: Palmer Penguin Dataset'
+author: "Aisha Mudasir"
+date: "October 2025"
+output: html_document
+---
+
+# Introduction
+The **Palmer Penguins dataset** contains physical measurements for three penguin species (*Adelie*, *Chinstrap*, and *Gentoo*) from the Palmer Archipelago, Antarctica.  
+Before we can analyze relationships between their **flipper length** and **body mass**, it’s essential to clean and prepare the dataset.
+
+This document describes each step of the cleaning process — including inspecting the data, handling missing values, checking data types, identifying outliers, and saving the cleaned dataset for analysis.
+
+## 1) Load Required Packages and Dataset
+Before we can clean data, we must load the libraries that contain the tools we’ll use and bring the dataset into our R environment.
+```{r}
+library(tidyverse)
+library(palmerpenguins)
+data("penguins")
+head(penguins)
+```
+
+* `tidyverse` provides functions like `filter()`, `mutate()`, and `summarise()`.
+
+* `library(palmerpenguins)` loads the dataset.
+
+* `head()` helps confirm successful loading.
+
+#### Output
+We should see a small preview of 6 rows showing columns like *species*, *island*, *bill_length_mm*, *flipper_length_mm*, *body_mass_g*, *sex*, and *year*.
+
+## 2) Explore and Understand the Dataset
+Understanding the dataset helps identify data types, missing values, and any inconsistencies before cleaning.
+
+### 2.1 Check Structure and Summary
+We will use `str()` function to show data types for each variable (e.g., numeric or factor) and `summary()` function to reveal min, max, median, mean, and NA counts.
+```{r}
+str(penguins)
+summary(penguins)
+```
+#### Output
+The dataset consists of **344 rows** and **8 variables**, representing measurements of three penguin species.
+Most variables are numeric except for species, island, and sex, which are categorical.
+Flipper lengths range from **172–231 mm**, and body masses from **2700–6300 g**, with mean values of **~200.9 mm** and **~4202 g** respectively.
+A few missing values are present, especially in the sex column *(11 missing entries)*, indicating the need for data cleaning before analysis.
+
+### 2.2 Check Column Names and Missing Values
+Knowing where missing values are helps decide what needs to be cleaned or filtered out in the next step.
+```{r}
+colnames(penguins)
+colSums(is.na(penguins))
+```
+#### Output
+This output confirms that the dataset has eight well-defined columns.
+
+* species, island, and year have **no** missing values.
+* bill_length_mm, bill_depth_mm, flipper_length_mm, and body_mass_g — each contain **2** missing entries.
+* The sex column has **11** missing values, which is the highest among all.
+
+These will be addressed in the data cleaning phase to ensure reliable statistical and visual analysis.
+
+## 3) Handle Missing Values
+Missing data can cause errors or bias results in visualizations and analysis.
+We’ll remove rows missing **flipper length**, **body mass** and **sex** but retain others that don’t affect analysis.
+`filter(!is.na())` ensures all remaining rows have complete numeric data for reliable analysis.
+```{r}
+penguins_clean <- penguins %>%
+  filter(!is.na(flipper_length_mm), !is.na(body_mass_g), !is.na(sex))
+nrow(penguins_clean)
+colSums(is.na(penguins_clean))
+```
+#### Output
+After filtering incomplete rows, the dataset now consists of **333** complete records.
+All missing values have been successfully removed, ensuring consistency and accuracy for further statistical and visualization steps.
+
+## 4) Standardize and Format Data
+To make sure R interprets columns correctly, categorical variables must be factors and numeric ones must be numeric.
+
+### 4.1 Convert Data Types
+This ensures that R treats species and other labels as categories for grouping and plotting later.
+```{r}
+penguins_clean <- penguins_clean %>%
+  mutate(
+    species = as.factor(species),
+    island = as.factor(island),
+    sex = as.factor(sex),
+    year = as.integer(year)
+  )
+str(penguins_clean)
+```
+#### Output
+Data types are appropriate — categorical variables are stored as factors, and measurements are numeric.
+This confirms that the dataset structure is now consistent and ready for further statistical analysis and visualization.
+
+### 4.2 Check Unique Values in Each Column
+This confirms categorical consistency (no duplicates like “Male” vs “male”).
+```{r}
+penguins_clean %>%
+  summarise(
+    species_types = n_distinct(species),
+    islands = n_distinct(island),
+    sexes = n_distinct(sex)
+  )
+```
+#### Output
+This output shows the count of **unique categories** within key categorical variables:
+
+* **3 distinct species** (Adelie, Chinstrap, Gentoo)
+
+* **3 islands** where observations were recorded (Biscoe, Dream, Torgersen)
+
+* **2 sexes** (female, male)
+
+This confirms that all categorical variables are consistent — there are no duplicate or misspelled category entries.
+
+## 5) Detect and Handle Outliers
+Outliers can distort averages or graphs. We’ll visualize and identify any extreme flipper or body mass values.
+
+### 5.1 Visual Detection with Boxplots
+The boxplots will show data distribution and any points outside whiskers (potential outliers).
+These visuals help us check if any penguin has unrealistic measurements.
+```{r}
+boxplot(penguins_clean$flipper_length_mm,
+        main = "Boxplot - Flipper Length (mm)",
+        col = "lightblue")
+boxplot(penguins_clean$body_mass_g,
+        main = "Boxplot - Body Mass (g)",
+        col = "lightgreen")
+```
+#### Output
+The boxplots reveal that both flipper length and body mass values are generally well distributed with few mild outliers.
+The majority of penguins have flipper lengths around **200 mm** and body masses between **3500–4750 g**.
+A small number of penguins fall outside these ranges, which may represent natural biological variation rather than data errors.
+
+### 5.2 Identify Outliers Numerically
+If the values seem biologically impossible (e.g., flipper <150 mm or >240 mm), we’ll remove them.
+```{r}
+flipper_outliers <- boxplot.stats(penguins_clean$flipper_length_mm)$out
+bodymass_outliers <- boxplot.stats(penguins_clean$body_mass_g)$out
+
+flipper_outliers
+bodymass_outliers
+```
+#### Output
+No outliers were detected in flipper length or body mass measurements.
+This confirms that all recorded values are within biologically reasonable limits and can be safely retained for further statistical and visualization analysis.
+
+### 5.3 Remove Unrealistic Outliers
+Filtering keeps valid penguin records for more accurate analysis.
+```{r}
+penguins_clean <- penguins_clean %>%
+  filter(body_mass_g > 2000 & body_mass_g < 7000)
+```
+Most of the dataset remains, only unrealistic weights (if any) are removed.
+
+## Verify the Cleaned Dataset
+We confirm that missing values, incorrect types, and outliers are handled correctly before saving.
+```{r}
+summary(penguins_clean)
+colSums(is.na(penguins_clean))
+cat("Rows before cleaning:", nrow(penguins), "\n")
+cat("Rows after cleaning:", nrow(penguins_clean), "\n")
+```
+#### Output
+The verification results confirm that the dataset is now fully cleaned, consistent, and complete.
+All numeric and categorical variables fall within realistic ranges, and there are no missing or invalid entries.
+The cleaned dataset contains 333 rows and 8 well-structured variables, ready for descriptive statistics and visualization in the analysis phase.
+
+## 7) Save the Cleaned Dataset
+We export the cleaned data for use in visualization and analysis notebooks.This ensures our cleaned dataset can be easily imported into future .Rmd files or Kaggle notebooks.
+```{r}
+if(!dir.exists("data/clean")) dir.create("data/clean", recursive = TRUE)
+write_csv(penguins_clean, "data/clean/penguins_clean.csv")
+list.files("data/clean")
+```
+#### Output
+The console lists "penguins_clean.csv" inside your data/clean folder.
+
